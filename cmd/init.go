@@ -10,24 +10,11 @@ import (
 )
 
 func runInit() {
-	configFile, _ := getPaths()
-	configDir := filepath.Dir(configFile)
+	_, linksFile := getPaths()
+	configDir := filepath.Dir(linksFile)
 
 	// Ensure config directory exists
 	_ = os.MkdirAll(configDir, 0755)
-
-	// Write default config if not exists
-	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		defaultConfig := []byte(`hosts:
-  - alias: dev-box
-    host: 127.0.0.1
-    port: 22
-    user: ubuntu
-    ssh_key_path: ~/.ssh/id_rsa
-`)
-		_ = os.WriteFile(configFile, defaultConfig, 0644)
-		fmt.Printf("Created default config template at %s\n", configFile)
-	}
 
 	// Append Zsh integration
 	zshrc := filepath.Join(os.Getenv("HOME"), ".zshrc")

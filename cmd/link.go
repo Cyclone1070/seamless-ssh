@@ -6,7 +6,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"strconv"
 	"strings"
 	"syscall"
 
@@ -18,47 +17,21 @@ import (
 )
 
 func runLink() {
-	if len(os.Args) < 3 || os.Args[2] != "." {
-		fmt.Println("Usage: sssh link . [remote-host] [--remote-dir <dir>]")
+	if len(os.Args) < 4 || os.Args[2] != "." {
+		fmt.Println("Usage: sssh link . [ssh-target] [--remote-dir <dir>]")
 		os.Exit(1)
 	}
 
-	configFile, linksFile := getPaths()
+	_, linksFile := getPaths()
 	mgr := config.NewManager(fs.NewRealFS())
 
-	cfg, err := mgr.ReadConfig(configFile)
-	if err != nil {
-		fmt.Printf("Error reading config.yaml: %v\n", err)
-		os.Exit(1)
-	}
-
-	// Determine host
-	var host domain.HostConfig
-	hostAlias := ""
+	sshTarget := ""
 	if len(os.Args) >= 4 && !strings.HasPrefix(os.Args[3], "-") {
-		hostAlias = os.Args[3]
+		sshTarget = os.Args[3]
 	}
-
-	if hostAlias != "" {
-		found := false
-		for _, h := range cfg.Hosts {
-			if h.Alias == hostAlias {
-				host = h
-				found = true
-				break
-			}
-		}
-		if !found {
-			fmt.Printf("Host alias %q not found in config.yaml\n", hostAlias)
-			os.Exit(1)
-		}
-	} else {
-		if len(cfg.Hosts) == 1 {
-			host = cfg.Hosts[0]
-		} else {
-			fmt.Println("Ambiguous host. Please specify host alias: sssh link . [alias]")
-			os.Exit(1)
-		}
+	if sshTarget == "" {
+		fmt.Println("Usage: sssh link . [ssh-target] [--remote-dir <dir>]")
+		os.Exit(1)
 	}
 
 	// Parse remote dir override
@@ -74,27 +47,19 @@ func runLink() {
 	}
 
 	// Establish SSH ControlMaster tunnel proactively
-	portStr := strconv.Itoa(host.Port)
-	if host.Port <= 0 {
-		portStr = "22"
-	}
-	controlPath := filepath.Join("/tmp", fmt.Sprintf("sssh-%s-%s-%s", host.User, host.Host, portStr))
+	controlPath := controlPath(sshTarget)
 	sshArgs := []string{
 		"-M", "-N", "-f",
 		"-o", "ControlPath=" + controlPath,
 		"-o", "ControlPersist=1h",
-		"-p", portStr,
+		sshTarget,
 	}
-	if host.SSHKeyPath != "" {
-		sshArgs = append(sshArgs, "-i", host.SSHKeyPath)
-	}
-	sshArgs = append(sshArgs, host.User+"@"+host.Host)
 	_ = exec.Command("ssh", sshArgs...).Run()
 
 	// Start mutagen sync
 	runner := internalexec.NewRealRunner()
 	syncMgr := sync.NewManager(runner)
-	err = syncMgr.Start(pwd, host, remoteDir)
+	err := syncMgr.Start(pwd, sshTarget, remoteDir)
 	if err != nil {
 		fmt.Printf("Error starting sync: %v\n", err)
 		os.Exit(1)
@@ -107,7 +72,7 @@ func runLink() {
 		var rawLinks map[string]map[string]interface{}
 		if json.Unmarshal(linksData, &rawLinks) == nil {
 			for _, entry := range rawLinks {
-				if entry["remote_host"] == host.Alias {
+				if entry["remote_host"] == sshTarget {
 					if pidVal, ok := entry["listener_pid"].(float64); ok && pidVal > 0 {
 						pid := int(pidVal)
 						proc, err := os.FindProcess(pid)
@@ -145,7 +110,7 @@ func runLink() {
 	// Write link registry
 	link := domain.Link{
 		LocalPath:   pwd,
-		RemoteHost:  host.Alias,
+		RemoteHost:  sshTarget,
 		RemotePath:  remoteDir,
 		Patterns:    []string{}, // opt-in by default
 		ListenerPid: listenerPid,
@@ -153,5 +118,5 @@ func runLink() {
 
 	_ = mgr.WriteLink(linksFile, link)
 
-	fmt.Printf("Successfully linked %s to %s:%s\n", pwd, host.Alias, remoteDir)
+	fmt.Printf("Successfully linked %s to %s:%s\n", pwd, sshTarget, remoteDir)
 }

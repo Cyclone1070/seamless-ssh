@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/seamless-ssh/sssh/internal/domain"
 )
 
 type CmdRunner interface {
@@ -37,9 +36,9 @@ func sessionName(localPath string) string {
 	return sb.String()
 }
 
-func (m *Manager) Start(localPath string, host domain.HostConfig, remotePath string) error {
+func (m *Manager) Start(localPath string, sshTarget string, remotePath string) error {
 	name := sessionName(localPath)
-	remoteURL := fmt.Sprintf("%s@%s:%d:%s", host.User, host.Host, host.Port, remotePath)
+	remoteURL := fmt.Sprintf("%s:%s", sshTarget, remotePath)
 
 	_, err := m.runner.Run("mutagen", "sync", "create", "--name", name, localPath, remoteURL)
 	if err != nil {

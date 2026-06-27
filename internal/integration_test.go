@@ -433,7 +433,7 @@ func TestIntegration_E2E(t *testing.T) {
 	// Build mock executables
 	buildMockMutagen(t, tempBin)
 	buildMockDocker(t, tempBin)
-	buildMockSSH(t, tempBin)
+	buildMockSSH(t, tempBin, tempHome)
 
 	// Compile the real sssh binary
 	ssshBin := filepath.Join(tempBin, "sssh")
@@ -465,32 +465,21 @@ func TestIntegration_E2E(t *testing.T) {
 		t.Fatalf("sssh init failed: %v", err)
 	}
 
-	// Check config file is written
-	configPath := filepath.Join(tempHome, ".config", "sssh", "config.yaml")
-	if _, err := os.Stat(configPath); err != nil {
-		t.Fatalf("config.yaml not found: %v", err)
-	}
-
-	// Overwrite default config.yaml with our local SSH server details
+	// Write local SSH configuration to ~/.ssh/config under alias "dev-box"
 	sshKeyPath := filepath.Join(tempHome, ".ssh", "id_rsa")
 	_ = os.MkdirAll(filepath.Dir(sshKeyPath), 0700)
 	writeRSAPrivateKey(t, sshKeyPath)
 
 	sshConfigPath := filepath.Join(tempHome, ".ssh", "config")
-	sshConfigContent := `Host *
+	sshConfigContent := fmt.Sprintf(`Host dev-box
+    HostName %s
+    Port %d
+    User %s
+    IdentityFile %s
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-`
+`, hostIp, port, os.Getenv("USER"), sshKeyPath)
 	_ = os.WriteFile(sshConfigPath, []byte(sshConfigContent), 0600)
-
-	newConfig := fmt.Sprintf(`hosts:
-  - alias: dev-box
-    host: %s
-    port: %d
-    user: testuser
-    ssh_key_path: %s
-`, hostIp, port, sshKeyPath)
-	_ = os.WriteFile(configPath, []byte(newConfig), 0644)
 
 	// 2. Run link
 	localProj := filepath.Join(tempHome, "my-proj")
@@ -612,7 +601,7 @@ func TestIntegration_ListenerReuse(t *testing.T) {
 	// Build mock executables
 	buildMockMutagen(t, tempBin)
 	buildMockDocker(t, tempBin)
-	buildMockSSH(t, tempBin)
+	buildMockSSH(t, tempBin, tempHome)
 
 	// Compile the real sssh binary
 	ssshBin := filepath.Join(tempBin, "sssh")
@@ -639,27 +628,21 @@ func TestIntegration_ListenerReuse(t *testing.T) {
 	// Run init
 	_, _, _ = runSssh(tempHome, "init")
 
-	// Overwrite default config.yaml with our local SSH server details
+	// Write local SSH configuration to ~/.ssh/config under alias "dev-box"
 	sshKeyPath := filepath.Join(tempHome, ".ssh", "id_rsa")
 	_ = os.MkdirAll(filepath.Dir(sshKeyPath), 0700)
 	writeRSAPrivateKey(t, sshKeyPath)
 
 	sshConfigPath := filepath.Join(tempHome, ".ssh", "config")
-	sshConfigContent := `Host *
+	sshConfigContent := fmt.Sprintf(`Host dev-box
+    HostName %s
+    Port %d
+    User %s
+    IdentityFile %s
     StrictHostKeyChecking no
     UserKnownHostsFile /dev/null
-`
+`, hostIp, port, os.Getenv("USER"), sshKeyPath)
 	_ = os.WriteFile(sshConfigPath, []byte(sshConfigContent), 0600)
-
-	newConfig := fmt.Sprintf(`hosts:
-  - alias: dev-box
-    host: %s
-    port: %d
-    user: testuser
-    ssh_key_path: %s
-`, hostIp, port, sshKeyPath)
-	configPath := filepath.Join(tempHome, ".config", "sssh", "config.yaml")
-	_ = os.WriteFile(configPath, []byte(newConfig), 0644)
 
 	// Create two folders
 	projA := filepath.Join(tempHome, "proj-a")
@@ -748,8 +731,151 @@ func TestIntegration_ListenerReuse(t *testing.T) {
 	}
 }
 
-func buildMockSSH(t *testing.T, binDir string) {
-	src := `package main
+func TestIntegration_SyncRecovery(t *testing.T) {
+	// Setup isolated home and bin directory
+	tempHomeRaw := t.TempDir()
+	tempHome, _ := filepath.EvalSymlinks(tempHomeRaw)
+	tempBinRaw := t.TempDir()
+	tempBin, _ := filepath.EvalSymlinks(tempBinRaw)
+
+	// Start SSH server
+	sshAddr, cleanupSSH := startSSHServer(t)
+	defer cleanupSSH()
+
+	// Parse host & port
+	hostIp, portStr, err := net.SplitHostPort(sshAddr)
+	if err != nil {
+		t.Fatalf("invalid ssh address: %v", err)
+	}
+	port, _ := net.LookupPort("tcp", portStr)
+
+	// Build mock executables
+	buildMockMutagen(t, tempBin)
+	buildMockDocker(t, tempBin)
+	buildMockSSH(t, tempBin, tempHome)
+
+	// Compile the real sssh binary
+	ssshBin := filepath.Join(tempBin, "sssh")
+	buildCmd := exec.Command("go", "build", "-o", ssshBin, "../main.go")
+	if err := buildCmd.Run(); err != nil {
+		t.Fatalf("failed to compile sssh binary: %v", err)
+	}
+
+	// Helper to run sssh commands with isolated environment
+	runSssh := func(dir string, args ...string) (string, string, error) {
+		cmd := exec.Command(ssshBin, args...)
+		cmd.Dir = dir
+		cmd.Env = append(os.Environ(),
+			"HOME="+tempHome,
+			"PATH="+tempBin+string(filepath.ListSeparator)+os.Getenv("PATH"),
+		)
+		var stdout, stderr bytes.Buffer
+		cmd.Stdout = &stdout
+		cmd.Stderr = &stderr
+		err := cmd.Run()
+		return stdout.String(), stderr.String(), err
+	}
+
+	// Run init
+	_, _, _ = runSssh(tempHome, "init")
+
+	// Write local SSH configuration to ~/.ssh/config under alias "dev-box"
+	sshKeyPath := filepath.Join(tempHome, ".ssh", "id_rsa")
+	_ = os.MkdirAll(filepath.Dir(sshKeyPath), 0700)
+	writeRSAPrivateKey(t, sshKeyPath)
+
+	sshConfigPath := filepath.Join(tempHome, ".ssh", "config")
+	sshConfigContent := fmt.Sprintf(`Host dev-box
+    HostName %s
+    Port %d
+    User %s
+    IdentityFile %s
+    StrictHostKeyChecking no
+    UserKnownHostsFile /dev/null
+`, hostIp, port, os.Getenv("USER"), sshKeyPath)
+	_ = os.WriteFile(sshConfigPath, []byte(sshConfigContent), 0600)
+
+	// Create directories
+	proj := filepath.Join(tempHome, "proj")
+	_ = os.MkdirAll(proj, 0755)
+
+	// Link proj
+	_, _, err = runSssh(proj, "link", ".", "dev-box")
+	if err != nil {
+		t.Fatalf("link failed: %v", err)
+	}
+
+	// Read initial links.json
+	linksFile := filepath.Join(tempHome, ".config", "sssh", "links.json")
+	linksData, err := os.ReadFile(linksFile)
+	if err != nil {
+		t.Fatalf("failed to read links.json: %v", err)
+	}
+
+	var rawLinks map[string]map[string]interface{}
+	if err := json.Unmarshal(linksData, &rawLinks); err != nil {
+		t.Fatalf("failed to unmarshal links.json: %v", err)
+	}
+
+	pidVal, ok := rawLinks[proj]["listener_pid"].(float64)
+	if !ok {
+		t.Fatalf("listener pid not found")
+	}
+	pid := int(pidVal)
+
+	// Kill the background listener process to simulate reboot/crash
+	proc, err := os.FindProcess(pid)
+	if err == nil {
+		_ = proc.Kill()
+		_ = proc.Release()
+	}
+
+	// Wait briefly
+	time.Sleep(100 * time.Millisecond)
+
+	// Run sssh sync to recover
+	out, serr, err := runSssh(proj, "sync")
+	if err != nil {
+		t.Fatalf("sync command failed: %v, stdout: %s, stderr: %s", err, out, serr)
+	}
+
+	// Verify updated links.json
+	linksData2, err := os.ReadFile(linksFile)
+	if err != nil {
+		t.Fatalf("failed to read links.json after sync: %v", err)
+	}
+
+	var rawLinks2 map[string]map[string]interface{}
+	if err := json.Unmarshal(linksData2, &rawLinks2); err != nil {
+		t.Fatalf("failed to unmarshal links.json: %v", err)
+	}
+
+	pidVal2, ok2 := rawLinks2[proj]["listener_pid"].(float64)
+	if !ok2 {
+		t.Fatalf("listener pid not found after sync")
+	}
+	pid2 := int(pidVal2)
+
+	if pid2 == pid {
+		t.Fatalf("expected listener PID to change, but it stayed %d", pid)
+	}
+
+	// Verify new process is alive
+	proc2, err := os.FindProcess(pid2)
+	if err != nil {
+		t.Fatalf("new process not found: %v", err)
+	}
+	if err := proc2.Signal(syscall.Signal(0)); err != nil {
+		t.Fatalf("new process is not running: %v", err)
+	}
+
+	// Cleanup
+	_, _, _ = runSssh(proj, "unlink")
+}
+
+func buildMockSSH(t *testing.T, binDir, tempHome string) {
+	sshConfigPath := filepath.Join(tempHome, ".ssh", "config")
+	src := fmt.Sprintf(`package main
 
 import (
 	"os"
@@ -760,6 +886,7 @@ import (
 func main() {
 	args := os.Args[1:]
 	newArgs := []string{
+		"-F", "%s",
 		"-o", "StrictHostKeyChecking=no",
 		"-o", "UserKnownHostsFile=/dev/null",
 	}
@@ -789,7 +916,8 @@ func main() {
 	}
 	os.Exit(exitCode)
 }
-`
+`, sshConfigPath)
+
 	tmpSrc := filepath.Join(t.TempDir(), "ssh_src.go")
 	if err := os.WriteFile(tmpSrc, []byte(src), 0644); err != nil {
 		t.Fatalf("failed to write ssh source: %v", err)

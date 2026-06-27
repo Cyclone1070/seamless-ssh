@@ -8,7 +8,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seamless-ssh/sssh/internal/domain"
 	"github.com/seamless-ssh/sssh/internal/portforward"
 )
 
@@ -156,7 +155,7 @@ func TestProxy_PortCollision(t *testing.T) {
 	}
 
 	mgr := portforward.NewManager(runner, customNetProv)
-	host := domain.HostConfig{User: "ubuntu", Host: "1.2.3.4", Port: 22}
+	host := "ubuntu@1.2.3.4"
 
 	err := mgr.ProxyPort(host, "8080")
 	if err == nil {
@@ -190,7 +189,7 @@ func TestProxy_TearDownOnStop(t *testing.T) {
 		listeners: make(map[string]*mockNetListener),
 	}
 	mgr := portforward.NewManager(runner, netProv)
-	host := domain.HostConfig{User: "ubuntu", Host: "1.2.3.4", Port: 22}
+	host := "ubuntu@1.2.3.4"
 
 	err := mgr.ProxyPort(host, "9000")
 	if err != nil {
@@ -222,7 +221,7 @@ func TestPortListener_EventStreamParsing(t *testing.T) {
 	}
 
 	mgr := portforward.NewManager(runner, netProv)
-	host := domain.HostConfig{User: "ubuntu", Host: "1.2.3.4", Port: 22}
+	host := "ubuntu@1.2.3.4"
 
 	// Run event listener in background
 	go func() {
@@ -266,7 +265,7 @@ func TestProxy_ProxyWarningOutputsToStderr(t *testing.T) {
 	}
 
 	mgr := portforward.NewManager(runner, netProv)
-	host := domain.HostConfig{User: "ubuntu", Host: "1.2.3.4", Port: 22}
+	host := "ubuntu@1.2.3.4"
 
 	// Custom stderr capture
 	oldStderr := portforward.StderrWriter

@@ -6,7 +6,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seamless-ssh/sssh/internal/domain"
 	"github.com/seamless-ssh/sssh/internal/sync"
 )
 
@@ -51,11 +50,7 @@ func TestSyncStart_Success(t *testing.T) {
 	}
 	mgr := sync.NewManager(runner)
 
-	host := domain.HostConfig{
-		User: "ubuntu",
-		Host: "1.2.3.4",
-		Port: 22,
-	}
+	host := "ubuntu@1.2.3.4:22"
 
 	err := mgr.Start("/local/path", host, "/remote/path")
 	if err != nil {
@@ -82,7 +77,7 @@ func TestSyncStart_AlreadyExists(t *testing.T) {
 	}
 	mgr := sync.NewManager(runner)
 
-	host := domain.HostConfig{User: "ubuntu", Host: "1.2.3.4", Port: 22}
+	host := "ubuntu@1.2.3.4:22"
 	err := mgr.Start("/local/path", host, "/remote/path")
 	if err != nil {
 		// Should succeed or handle gracefully (returns nil if already syncs)
@@ -98,7 +93,7 @@ func TestSyncStart_MutagenBinaryNotFound(t *testing.T) {
 	}
 	mgr := sync.NewManager(runner)
 
-	host := domain.HostConfig{User: "ubuntu", Host: "1.2.3.4", Port: 22}
+	host := "ubuntu@1.2.3.4:22"
 	err := mgr.Start("/local/path", host, "/remote/path")
 	if err == nil {
 		t.Fatal("expected error, got nil")
@@ -116,7 +111,7 @@ func TestSyncStart_ExitCodeError(t *testing.T) {
 	}
 	mgr := sync.NewManager(runner)
 
-	host := domain.HostConfig{User: "ubuntu", Host: "1.2.3.4", Port: 22}
+	host := "ubuntu@1.2.3.4:22"
 	err := mgr.Start("/local/path", host, "/remote/path")
 	if err == nil {
 		t.Fatal("expected error, got nil")

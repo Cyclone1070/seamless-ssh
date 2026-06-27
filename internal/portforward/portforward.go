@@ -12,8 +12,19 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/seamless-ssh/sssh/internal/domain"
 )
+
+func controlPath(sshTarget string) string {
+	var sb strings.Builder
+	for _, r := range sshTarget {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			sb.WriteRune(r)
+		} else {
+			sb.WriteRune('-')
+		}
+	}
+	return filepath.Join("/tmp", fmt.Sprintf("sssh-%s", sb.String()))
+}
 
 var StderrWriter io.Writer = os.Stderr
 
@@ -146,7 +157,7 @@ func NewManager(runner CmdRunner, netProv NetProvider) *Manager {
 	}
 }
 
-func (m *Manager) ProxyPort(host domain.HostConfig, targetPort string) error {
+func (m *Manager) ProxyPort(sshTarget string, targetPort string) error {
 	addr := "127.0.0.1:" + targetPort
 	listener, err := m.netProv.Listen("tcp", addr)
 	if err != nil {
@@ -166,30 +177,22 @@ func (m *Manager) ProxyPort(host domain.HostConfig, targetPort string) error {
 			if err != nil {
 				return
 			}
-			go m.handleConnection(host, conn, targetPort)
+			go m.handleConnection(sshTarget, conn, targetPort)
 		}
 	}()
 
 	return nil
 }
 
-func (m *Manager) handleConnection(host domain.HostConfig, conn Conn, targetPort string) {
+func (m *Manager) handleConnection(sshTarget string, conn Conn, targetPort string) {
 	defer conn.Close()
 
-	portStr := strconv.Itoa(host.Port)
-	if host.Port <= 0 {
-		portStr = "22"
-	}
-	controlPath := filepath.Join("/tmp", fmt.Sprintf("sssh-%s-%s-%s", host.User, host.Host, portStr))
+	controlPath := controlPath(sshTarget)
 
 	sshArgs := []string{
 		"-o", "ControlPath=" + controlPath,
-		"-p", portStr,
+		sshTarget, "-W", "127.0.0.1:"+targetPort,
 	}
-	if host.SSHKeyPath != "" {
-		sshArgs = append(sshArgs, "-i", host.SSHKeyPath)
-	}
-	sshArgs = append(sshArgs, host.User+"@"+host.Host, "-W", "127.0.0.1:"+targetPort)
 
 	_, _ = m.runner.RunStream("ssh", sshArgs, nil, conn, conn, io.Discard)
 }
@@ -210,7 +213,7 @@ func (m *Manager) StopAll() {
 	}
 }
 
-func (m *Manager) ListenEvents(host domain.HostConfig, isPodman bool) error {
+func (m *Manager) ListenEvents(sshTarget string, isPodman bool) error {
 	pr, pw := io.Pipe()
 	go func() {
 		var cmdArgs []string
@@ -222,23 +225,15 @@ func (m *Manager) ListenEvents(host domain.HostConfig, isPodman bool) error {
 			cmdArgs = []string{"events", "--filter", "event=start", "--format", "{{.ID}}"}
 		}
 
-		portStr := strconv.Itoa(host.Port)
-		if host.Port <= 0 {
-			portStr = "22"
-		}
-		controlPath := filepath.Join("/tmp", fmt.Sprintf("sssh-%s-%s-%s", host.User, host.Host, portStr))
+		controlPath := controlPath(sshTarget)
 
 		sshArgs := []string{
 			"-o", "ControlPath=" + controlPath,
-			"-p", portStr,
-		}
-		if host.SSHKeyPath != "" {
-			sshArgs = append(sshArgs, "-i", host.SSHKeyPath)
 		}
 
 		fullCmd := []string{binary}
 		fullCmd = append(fullCmd, cmdArgs...)
-		sshArgs = append(sshArgs, host.User+"@"+host.Host, strings.Join(fullCmd, " "))
+		sshArgs = append(sshArgs, sshTarget, strings.Join(fullCmd, " "))
 
 		_, _ = m.runner.RunStream("ssh", sshArgs, nil, nil, pw, io.Discard)
 		_ = pw.Close()
@@ -250,12 +245,12 @@ func (m *Manager) ListenEvents(host domain.HostConfig, isPodman bool) error {
 		if containerID == "" {
 			continue
 		}
-		go m.inspectAndProxy(host, containerID, isPodman)
+		go m.inspectAndProxy(sshTarget, containerID, isPodman)
 	}
 	return nil
 }
 
-func (m *Manager) inspectAndProxy(host domain.HostConfig, containerID string, isPodman bool) {
+func (m *Manager) inspectAndProxy(sshTarget string, containerID string, isPodman bool) {
 	binary := "docker"
 	format := "{{json .NetworkSettings.Ports}}"
 	if isPodman {
@@ -281,6 +276,6 @@ func (m *Manager) inspectAndProxy(host domain.HostConfig, containerID string, is
 	}
 
 	for _, hostPort := range ports {
-		_ = m.ProxyPort(host, hostPort)
+		_ = m.ProxyPort(sshTarget, hostPort)
 	}
 }

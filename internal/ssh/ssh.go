@@ -5,11 +5,22 @@ import (
 	"fmt"
 	"io"
 	"path/filepath"
-	"strconv"
 	"strings"
 
 	"github.com/seamless-ssh/sssh/internal/domain"
 )
+
+func controlPath(sshTarget string) string {
+	var sb strings.Builder
+	for _, r := range sshTarget {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			sb.WriteRune(r)
+		} else {
+			sb.WriteRune('-')
+		}
+	}
+	return filepath.Join("/tmp", fmt.Sprintf("sssh-%s", sb.String()))
+}
 
 type CmdRunner interface {
 	Run(name string, args ...string) ([]byte, error)
@@ -61,7 +72,7 @@ func escapeArg(arg string) string {
 	return arg
 }
 
-func (m *Manager) Exec(host domain.HostConfig, remoteDir string, cmdAndArgs []string, env []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
+func (m *Manager) Exec(sshTarget string, remoteDir string, cmdAndArgs []string, env []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	var envStrings []string
 	for _, e := range env {
 		if strings.Contains(e, "=") {
@@ -82,26 +93,15 @@ func (m *Manager) Exec(host domain.HostConfig, remoteDir string, cmdAndArgs []st
 		remoteCmd = fmt.Sprintf("cd %s && %s", escapeArg(remoteDir), strings.Join(cmdParts, " "))
 	}
 
-	portStr := strconv.Itoa(host.Port)
-	if host.Port <= 0 {
-		portStr = "22"
-	}
-
-	// We default to a standard temp dir or local folder for ssh ControlPath to avoid missing HOME env issues in tests.
-	controlPath := filepath.Join("/tmp", fmt.Sprintf("sssh-%s-%s-%s", host.User, host.Host, portStr))
+	controlPath := controlPath(sshTarget)
 
 	sshArgs := []string{
 		"-o", "ControlMaster=auto",
 		"-o", "ControlPath=" + controlPath,
 		"-o", "ControlPersist=1h",
-		"-p", portStr,
 	}
 
-	if host.SSHKeyPath != "" {
-		sshArgs = append(sshArgs, "-i", host.SSHKeyPath)
-	}
-
-	sshArgs = append(sshArgs, host.User+"@"+host.Host, remoteCmd)
+	sshArgs = append(sshArgs, sshTarget, remoteCmd)
 
 	return m.runner.RunStream("ssh", sshArgs, nil, stdin, stdout, stderr)
 }

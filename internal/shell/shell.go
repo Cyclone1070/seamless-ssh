@@ -88,6 +88,9 @@ sssh-accept-line() {
     fi
     zle sssh-orig-accept-line
 }
+
+# Run sync in background on terminal startup to restore links, syncs, and listeners
+(sssh sync >/dev/null 2>&1 &)
 `
 
 type Generator struct{}

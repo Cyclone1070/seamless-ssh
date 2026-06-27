@@ -15,7 +15,7 @@ func main() {
 
 	subcommand := os.Args[1]
 	switch subcommand {
-	case "init", "link", "unlink", "add", "remove", "status", "check-intercept", "port-listener", "help", "-h", "--help":
+	case "init", "link", "unlink", "add", "remove", "status", "check-intercept", "port-listener", "sync", "help", "-h", "--help":
 		if err := cmd.Execute(); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 			os.Exit(1)

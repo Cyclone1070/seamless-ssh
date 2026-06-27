@@ -92,6 +92,9 @@ func TestZshHookScript_ContainsHook(t *testing.T) {
 	if !contains(script, "sssh-accept-line") {
 		t.Error("expected script to contain sssh-accept-line hook")
 	}
+	if !contains(script, "sssh sync") {
+		t.Error("expected script to contain sssh sync recovery call")
+	}
 }
 
 func contains(s, substr string) bool {

@@ -121,12 +121,7 @@ func TestSSHExec_Success(t *testing.T) {
 	}
 	mgr := ssh.NewManager(runner)
 
-	host := domain.HostConfig{
-		User:       "ubuntu",
-		Host:       "1.2.3.4",
-		Port:       22,
-		SSHKeyPath: "/key",
-	}
+	host := "ubuntu@1.2.3.4"
 
 	stdout := new(bytes.Buffer)
 	stderr := new(bytes.Buffer)
@@ -162,7 +157,7 @@ func TestSSHExec_ExitCodes(t *testing.T) {
 	}
 	mgr := ssh.NewManager(runner)
 
-	host := domain.HostConfig{User: "ubuntu", Host: "1.2.3.4", Port: 22}
+	host := "ubuntu@1.2.3.4"
 	code, err := mgr.Exec(host, "/remote/dir", []string{"invalid"}, nil, nil, nil, nil)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -179,7 +174,7 @@ func TestSSHExec_NetworkTimeout(t *testing.T) {
 	}
 	mgr := ssh.NewManager(runner)
 
-	host := domain.HostConfig{User: "ubuntu", Host: "1.2.3.4", Port: 22}
+	host := "ubuntu@1.2.3.4"
 	code, err := mgr.Exec(host, "/remote/dir", []string{"go", "test"}, nil, nil, nil, nil)
 	if err == nil {
 		t.Fatal("expected error, got nil")

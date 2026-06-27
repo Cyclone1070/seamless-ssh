@@ -98,6 +98,15 @@ func NewRootCmd() *cobra.Command {
 		},
 	})
 
+	rootCmd.AddCommand(&cobra.Command{
+		Use:                "sync",
+		Short:              "Restore all links, syncs, and port listeners",
+		DisableFlagParsing: true,
+		Run: func(cmd *cobra.Command, args []string) {
+			runSync()
+		},
+	})
+
 	return rootCmd
 }
 
@@ -145,28 +154,13 @@ func findParentLink(linksFile, pwd string) (string, domain.Link, bool) {
 }
 
 func runDirectExec(args []string) {
-	configFile, linksFile := getPaths()
+	_, linksFile := getPaths()
 	pwd, _ := os.Getwd()
 
 	linkPath, link, found := findParentLink(linksFile, pwd)
 	if !found {
 		fmt.Println("No active link found in this directory hierarchy")
 		os.Exit(1)
-	}
-
-	mgr := config.NewManager(fs.NewRealFS())
-	cfg, err := mgr.ReadConfig(configFile)
-	if err != nil {
-		fmt.Printf("Error: %v\n", err)
-		os.Exit(1)
-	}
-
-	var host domain.HostConfig
-	for _, h := range cfg.Hosts {
-		if h.Alias == link.RemoteHost {
-			host = h
-			break
-		}
 	}
 
 	resolver := ssh.NewResolver()
@@ -181,10 +175,22 @@ func runDirectExec(args []string) {
 	_ = syncMgr.WaitSync(linkPath, 10*time.Second)
 
 	sshMgr := ssh.NewManager(runner)
-	code, err := sshMgr.Exec(host, remoteDir, args, os.Environ(), os.Stdin, os.Stdout, os.Stderr)
+	code, err := sshMgr.Exec(link.RemoteHost, remoteDir, args, os.Environ(), os.Stdin, os.Stdout, os.Stderr)
 	if err != nil {
 		fmt.Printf("Execution error: %v\n", err)
 		os.Exit(code)
 	}
 	os.Exit(code)
+}
+
+func controlPath(sshTarget string) string {
+	var sb strings.Builder
+	for _, r := range sshTarget {
+		if (r >= 'a' && r <= 'z') || (r >= 'A' && r <= 'Z') || (r >= '0' && r <= '9') {
+			sb.WriteRune(r)
+		} else {
+			sb.WriteRune('-')
+		}
+	}
+	return filepath.Join("/tmp", fmt.Sprintf("sssh-%s", sb.String()))
 }
