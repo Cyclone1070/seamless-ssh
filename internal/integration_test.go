@@ -959,34 +959,63 @@ func TestZshHookScript_ZshExecution(t *testing.T) {
 	gen := shell.NewGenerator()
 	hookScript := gen.ZshHookScript()
 
-	// Wrap execution in a mock zsh script that initializes a mock user accept-line widget
-	zshInput := fmt.Sprintf(`
-# Zsh accepts zle commands only when interactive or explicitly initialized
-zmodload zsh/zle
-
+	tests := []struct {
+		name  string
+		setup string
+	}{
+		{
+			name: "UserDefinedWidget",
+			setup: `
 # Mock user-defined widget function
 mock_widget() { }
 zle -N accept-line mock_widget
+`,
+		},
+		{
+			name:  "BuiltinWidget",
+			setup: "",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			zshInput := fmt.Sprintf(`
+# Zsh accepts zle commands only when interactive or explicitly initialized
+zmodload zsh/zle
+
+%s
 
 # Execute hook script
 %s
 
 # Assert the resolved function actually exists
-func="${widgets[sssh-orig-accept-line]#*:}"
-if [[ "$func" != "."* ]]; then
-    whence -f "$func" || {
-        echo "resolved function $func does not exist" >&2
+raw_func="${widgets[sssh-orig-accept-line]}"
+if [[ "$raw_func" == *:* ]]; then
+    # Strip user: prefix
+    func="${raw_func#*:}"
+    if [[ "$func" == *:* ]]; then
+        echo "resolved function $raw_func has double prefix" >&2
         exit 1
-    }
+    fi
+else
+    func="$raw_func"
 fi
-`, hookScript)
+whence -f "$func" || {
+    echo "resolved function $func does not exist" >&2
+    exit 1
+}
 
-	cmd := exec.Command(zshPath, "-c", zshInput)
-	var stderr bytes.Buffer
-	cmd.Stderr = &stderr
-	err = cmd.Run()
+`, tt.setup, hookScript)
 
-	if err != nil {
-		t.Fatalf("zsh script execution failed: %v, stderr: %q", err, stderr.String())
+			cmd := exec.Command(zshPath, "-c", zshInput)
+			var stderr bytes.Buffer
+			cmd.Stderr = &stderr
+			err := cmd.Run()
+
+			if err != nil {
+				t.Fatalf("zsh script execution failed: %v, stderr: %q", err, stderr.String())
+			}
+		})
 	}
 }
+

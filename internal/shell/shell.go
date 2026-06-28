@@ -77,22 +77,27 @@ func (m *Matcher) ShouldRunRemote(cmdLine string, patterns []string) bool {
 
 const zshHookTemplate = `# sssh Zsh Integration Hook
 
-if [[ "$widgets[accept-line]" != "user:sssh-accept-line" ]]; then
-    local sssh_orig_widget="${widgets[accept-line]}"
-    if [[ "$sssh_orig_widget" == *:* ]]; then
-        sssh_orig_widget="${sssh_orig_widget#*:}"
-    else
-        sssh_orig_widget=".accept-line"
-    fi
-    zle -N sssh-orig-accept-line "$sssh_orig_widget"
-    zle -N accept-line sssh-accept-line
-fi
-
 sssh-accept-line() {
     if sssh check-intercept "$BUFFER" "$PWD"; then
         BUFFER="sssh $BUFFER"
     fi
     zle sssh-orig-accept-line
+}
+
+() {
+    if [[ "$widgets[accept-line]" != "user:sssh-accept-line" ]]; then
+        local sssh_orig_widget="${widgets[accept-line]}"
+        if [[ "$sssh_orig_widget" == *:* ]]; then
+            sssh_orig_widget="${sssh_orig_widget#*:}"
+            zle -N sssh-orig-accept-line "$sssh_orig_widget"
+        else
+            sssh-orig-accept-line() {
+                zle .accept-line
+            }
+            zle -N sssh-orig-accept-line
+        fi
+        zle -N accept-line sssh-accept-line
+    fi
 }
 
 # Run sync in background on terminal startup to restore links, syncs, and listeners
