@@ -78,7 +78,13 @@ func (m *Matcher) ShouldRunRemote(cmdLine string, patterns []string) bool {
 const zshHookTemplate = `# sssh Zsh Integration Hook
 
 if [[ "$widgets[accept-line]" != "user:sssh-accept-line" ]]; then
-    zle -N sssh-orig-accept-line "${widgets[accept-line]:-.accept-line}"
+    local sssh_orig_widget="${widgets[accept-line]}"
+    if [[ "$sssh_orig_widget" == *:* ]]; then
+        sssh_orig_widget="${sssh_orig_widget#*:}"
+    else
+        sssh_orig_widget=".accept-line"
+    fi
+    zle -N sssh-orig-accept-line "$sssh_orig_widget"
     zle -N accept-line sssh-accept-line
 fi
 

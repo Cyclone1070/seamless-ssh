@@ -18,6 +18,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/Cyclone1070/sssh/internal/shell"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -946,5 +947,46 @@ func writeRSAPrivateKey(t *testing.T, path string) {
 	defer f.Close()
 	if err := pem.Encode(f, block); err != nil {
 		t.Fatalf("failed to encode key: %v", err)
+	}
+}
+
+func TestZshHookScript_ZshExecution(t *testing.T) {
+	zshPath, err := exec.LookPath("zsh")
+	if err != nil {
+		t.Skip("zsh not found in PATH, skipping execution test")
+	}
+
+	gen := shell.NewGenerator()
+	hookScript := gen.ZshHookScript()
+
+	// Wrap execution in a mock zsh script that initializes a mock user accept-line widget
+	zshInput := fmt.Sprintf(`
+# Zsh accepts zle commands only when interactive or explicitly initialized
+zmodload zsh/zle
+
+# Mock user-defined widget function
+mock_widget() { }
+zle -N accept-line mock_widget
+
+# Execute hook script
+%s
+
+# Assert the resolved function actually exists
+func="${widgets[sssh-orig-accept-line]#*:}"
+if [[ "$func" != "."* ]]; then
+    whence -f "$func" || {
+        echo "resolved function $func does not exist" >&2
+        exit 1
+    }
+fi
+`, hookScript)
+
+	cmd := exec.Command(zshPath, "-c", zshInput)
+	var stderr bytes.Buffer
+	cmd.Stderr = &stderr
+	err = cmd.Run()
+
+	if err != nil {
+		t.Fatalf("zsh script execution failed: %v, stderr: %q", err, stderr.String())
 	}
 }
