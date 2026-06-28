@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Cyclone1070/seamless-ssh/internal/config"
-	internalexec "github.com/Cyclone1070/seamless-ssh/internal/exec"
-	"github.com/Cyclone1070/seamless-ssh/internal/fs"
-	"github.com/Cyclone1070/seamless-ssh/internal/portforward"
-	"github.com/Cyclone1070/seamless-ssh/internal/sync"
+	"github.com/Cyclone1070/sssh/internal/config"
+	internalexec "github.com/Cyclone1070/sssh/internal/exec"
+	"github.com/Cyclone1070/sssh/internal/fs"
+	"github.com/Cyclone1070/sssh/internal/portforward"
+	"github.com/Cyclone1070/sssh/internal/sync"
 )
 
 func runUnlink() {

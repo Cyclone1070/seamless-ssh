@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/Cyclone1070/seamless-ssh/internal/portforward"
+	"github.com/Cyclone1070/sssh/internal/portforward"
 )
 
 type mockCmdRunner struct {

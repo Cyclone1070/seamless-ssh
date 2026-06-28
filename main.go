@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/Cyclone1070/seamless-ssh/cmd"
+	"github.com/Cyclone1070/sssh/cmd"
 )
 
 func main() {

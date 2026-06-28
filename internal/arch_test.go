@@ -15,12 +15,12 @@ import (
 func internalPackages(t *testing.T) []string {
 	t.Helper()
 	cfg := &packages.Config{Mode: packages.NeedName}
-	pkgs, err := packages.Load(cfg, "github.com/Cyclone1070/seamless-ssh/internal/...")
+	pkgs, err := packages.Load(cfg, "github.com/Cyclone1070/sssh/internal/...")
 	if err != nil {
 		t.Fatalf("failed to load internal packages: %v", err)
 	}
-	const domain = "github.com/Cyclone1070/seamless-ssh/internal/domain"
-	const root = "github.com/Cyclone1070/seamless-ssh/internal"
+	const domain = "github.com/Cyclone1070/sssh/internal/domain"
+	const root = "github.com/Cyclone1070/sssh/internal"
 	var result []string
 	for _, pkg := range pkgs {
 		if pkg.PkgPath == root || pkg.PkgPath == domain {
@@ -32,7 +32,7 @@ func internalPackages(t *testing.T) []string {
 }
 
 func TestArchitecture_Dependencies(t *testing.T) {
-	const modulePrefix = "github.com/Cyclone1070/seamless-ssh/"
+	const modulePrefix = "github.com/Cyclone1070/sssh/"
 	const internalPrefix = modulePrefix + "internal/"
 	const domainPackage = internalPrefix + "domain"
 
@@ -158,7 +158,7 @@ func checkNoAny(t *testing.T, filename string, expr ast.Expr) {
 
 func TestArchitecture_NoGlobals(t *testing.T) {
 	for _, pkgPath := range internalPackages(t) {
-		if pkgPath == "github.com/Cyclone1070/seamless-ssh/internal/fs" {
+		if pkgPath == "github.com/Cyclone1070/sssh/internal/fs" {
 			continue
 		}
 		t.Run(pkgPath, func(t *testing.T) {
@@ -203,7 +203,7 @@ func inspectNoGlobals(t *testing.T, filepathKey string, file *ast.File) {
 
 func TestArchitecture_MockedUnitTestsOnly(t *testing.T) {
 	for _, pkgPath := range internalPackages(t) {
-		if pkgPath == "github.com/Cyclone1070/seamless-ssh/internal/fs" {
+		if pkgPath == "github.com/Cyclone1070/sssh/internal/fs" {
 			continue
 		}
 		t.Run(pkgPath, func(t *testing.T) {

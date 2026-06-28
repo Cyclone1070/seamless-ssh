@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/Cyclone1070/seamless-ssh/cmd"
+	"github.com/Cyclone1070/sssh/cmd"
 )
 
 func TestNewRootCmd_Help(t *testing.T) {

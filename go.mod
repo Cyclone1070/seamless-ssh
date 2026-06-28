@@ -1,4 +1,4 @@
-module github.com/Cyclone1070/seamless-ssh
+module github.com/Cyclone1070/sssh
 
 go 1.26.3
 

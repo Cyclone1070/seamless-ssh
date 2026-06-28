@@ -7,7 +7,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/Cyclone1070/seamless-ssh/internal/domain"
+	"github.com/Cyclone1070/sssh/internal/domain"
 )
 
 func controlPath(sshTarget string) string {

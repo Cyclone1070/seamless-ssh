@@ -6,11 +6,11 @@ import (
 	"os/exec"
 	"syscall"
 
-	"github.com/Cyclone1070/seamless-ssh/internal/config"
-	"github.com/Cyclone1070/seamless-ssh/internal/domain"
-	internalexec "github.com/Cyclone1070/seamless-ssh/internal/exec"
-	"github.com/Cyclone1070/seamless-ssh/internal/fs"
-	"github.com/Cyclone1070/seamless-ssh/internal/sync"
+	"github.com/Cyclone1070/sssh/internal/config"
+	"github.com/Cyclone1070/sssh/internal/domain"
+	internalexec "github.com/Cyclone1070/sssh/internal/exec"
+	"github.com/Cyclone1070/sssh/internal/fs"
+	"github.com/Cyclone1070/sssh/internal/sync"
 )
 
 func runSync() {
