@@ -6,8 +6,8 @@ import (
 	"io"
 	"testing"
 
-	"github.com/seamless-ssh/sssh/internal/domain"
-	"github.com/seamless-ssh/sssh/internal/ssh"
+	"github.com/Cyclone1070/seamless-ssh/internal/domain"
+	"github.com/Cyclone1070/seamless-ssh/internal/ssh"
 )
 
 type mockCmdRunner struct {

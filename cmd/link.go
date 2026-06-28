@@ -9,11 +9,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/seamless-ssh/sssh/internal/config"
-	"github.com/seamless-ssh/sssh/internal/domain"
-	internalexec "github.com/seamless-ssh/sssh/internal/exec"
-	"github.com/seamless-ssh/sssh/internal/fs"
-	"github.com/seamless-ssh/sssh/internal/sync"
+	"github.com/Cyclone1070/seamless-ssh/internal/config"
+	"github.com/Cyclone1070/seamless-ssh/internal/domain"
+	internalexec "github.com/Cyclone1070/seamless-ssh/internal/exec"
+	"github.com/Cyclone1070/seamless-ssh/internal/fs"
+	"github.com/Cyclone1070/seamless-ssh/internal/sync"
 )
 
 func runLink() {

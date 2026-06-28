@@ -3,7 +3,7 @@ package cmd
 import (
 	"os"
 
-	"github.com/seamless-ssh/sssh/internal/shell"
+	"github.com/Cyclone1070/seamless-ssh/internal/shell"
 )
 
 func runCheckIntercept() {

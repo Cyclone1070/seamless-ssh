@@ -3,8 +3,8 @@ package cmd
 import (
 	"fmt"
 
-	"github.com/seamless-ssh/sssh/internal/config"
-	"github.com/seamless-ssh/sssh/internal/fs"
+	"github.com/Cyclone1070/seamless-ssh/internal/config"
+	"github.com/Cyclone1070/seamless-ssh/internal/fs"
 )
 
 func runStatus() {

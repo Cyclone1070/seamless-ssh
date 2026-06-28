@@ -7,7 +7,7 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/seamless-ssh/sssh/internal/domain"
+	"github.com/Cyclone1070/seamless-ssh/internal/domain"
 )
 
 type Filesystem interface {

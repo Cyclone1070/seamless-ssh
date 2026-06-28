@@ -8,8 +8,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seamless-ssh/sssh/internal/config"
-	"github.com/seamless-ssh/sssh/internal/domain"
+	"github.com/Cyclone1070/seamless-ssh/internal/config"
+	"github.com/Cyclone1070/seamless-ssh/internal/domain"
 )
 
 // mockFileInfo implements fs.FileInfo for mockStat

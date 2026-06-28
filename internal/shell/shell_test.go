@@ -3,7 +3,7 @@ package shell_test
 import (
 	"testing"
 
-	"github.com/seamless-ssh/sssh/internal/shell"
+	"github.com/Cyclone1070/seamless-ssh/internal/shell"
 )
 
 func TestPattern_MatchExact(t *testing.T) {

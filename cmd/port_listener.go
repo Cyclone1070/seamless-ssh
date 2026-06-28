@@ -3,8 +3,8 @@ package cmd
 import (
 	"os"
 
-	internalexec "github.com/seamless-ssh/sssh/internal/exec"
-	"github.com/seamless-ssh/sssh/internal/portforward"
+	internalexec "github.com/Cyclone1070/seamless-ssh/internal/exec"
+	"github.com/Cyclone1070/seamless-ssh/internal/portforward"
 )
 
 func runPortListener() {

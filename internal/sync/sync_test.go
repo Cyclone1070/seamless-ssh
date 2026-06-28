@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/seamless-ssh/sssh/internal/sync"
+	"github.com/Cyclone1070/seamless-ssh/internal/sync"
 )
 
 type mockCmdRunner struct {
