@@ -40,7 +40,25 @@ func (m *Manager) Start(localPath string, sshTarget string, remotePath string) e
 	name := sessionName(localPath)
 	remoteURL := fmt.Sprintf("%s:%s", sshTarget, remotePath)
 
-	_, err := m.runner.Run("mutagen", "sync", "create", "--name", name, localPath, remoteURL)
+	// Check if session already exists
+	listBytes, err := m.runner.Run("mutagen", "sync", "list", name)
+	if err == nil && len(listBytes) > 0 {
+		listOutput := string(listBytes)
+		if strings.Contains(listOutput, "Name: "+name) || strings.Contains(listOutput, "Identifier: ") {
+			hasLocal := strings.Contains(listOutput, "URL: "+localPath) || strings.Contains(listOutput, "URL: "+filepath.Clean(localPath))
+			hasRemote := strings.Contains(listOutput, "URL: "+remoteURL)
+
+			if hasLocal && hasRemote {
+				// Existing session matches targets, do nothing
+				return nil
+			}
+
+			// Differing targets or duplicates exist, terminate them first
+			_, _ = m.runner.Run("mutagen", "sync", "terminate", name)
+		}
+	}
+
+	_, err = m.runner.Run("mutagen", "sync", "create", "--name", name, localPath, remoteURL)
 	if err != nil {
 		errStr := err.Error()
 		if strings.Contains(errStr, "executable file not found") {

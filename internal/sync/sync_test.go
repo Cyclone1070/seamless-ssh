@@ -57,14 +57,20 @@ func TestSyncStart_Success(t *testing.T) {
 		t.Fatalf("unexpected error: %v", err)
 	}
 
-	if len(runner.runs) == 0 {
-		t.Fatal("expected commands to be run, got none")
+	if len(runner.runs) < 2 {
+		t.Fatalf("expected at least 2 commands to be run, got %d", len(runner.runs))
 	}
 
-	// Verify mutagen sync create was called
-	createCmd := runner.runs[0]
+	// Verify mutagen sync list was called first
+	listCmd := runner.runs[0]
+	if listCmd[0] != "mutagen" || listCmd[1] != "sync" || listCmd[2] != "list" {
+		t.Errorf("expected mutagen sync list as first command, got: %v", listCmd)
+	}
+
+	// Verify mutagen sync create was called second
+	createCmd := runner.runs[1]
 	if createCmd[0] != "mutagen" || createCmd[1] != "sync" || createCmd[2] != "create" {
-		t.Errorf("expected mutagen sync create, got: %v", createCmd)
+		t.Errorf("expected mutagen sync create as second command, got: %v", createCmd)
 	}
 }
 
@@ -283,3 +289,62 @@ func (m *daemonMockRunner) Run(name string, args ...string) ([]byte, error) {
 
 	return nil, nil
 }
+
+func TestSyncStart_ExistingSessionMatches_DoesNotTerminate(t *testing.T) {
+	// If the existing mutagen session has matching paths, it should not terminate and just succeed.
+	runner := &mockCmdRunner{
+		runResults: map[string][]byte{
+			"mutagen sync list sssh-path": []byte("Name: sssh-path\nAlpha:\n\tURL: /local/path\nBeta:\n\tURL: dev-box:/remote/path\n"),
+		},
+		runErrors: make(map[string]error),
+	}
+	mgr := sync.NewManager(runner)
+
+	err := mgr.Start("/local/path", "dev-box", "/remote/path")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify mutagen sync terminate was NOT called
+	for _, run := range runner.runs {
+		if run[0] == "mutagen" && run[1] == "sync" && run[2] == "terminate" {
+			t.Fatalf("did not expect mutagen sync terminate to be called, but got: %v", run)
+		}
+	}
+}
+
+func TestSyncStart_ExistingSessionDiffers_TerminatesAndCreates(t *testing.T) {
+	// If the existing mutagen session has different paths, it should terminate the old session and create a new one.
+	runner := &mockCmdRunner{
+		runResults: map[string][]byte{
+			"mutagen sync list sssh-path": []byte("Name: sssh-path\nAlpha:\n\tURL: /different/local/path\nBeta:\n\tURL: dev-box:/remote/path\n"),
+		},
+		runErrors: make(map[string]error),
+	}
+	mgr := sync.NewManager(runner)
+
+	err := mgr.Start("/local/path", "dev-box", "/remote/path")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify mutagen sync terminate was called, followed by mutagen sync create
+	terminated := false
+	created := false
+	for _, run := range runner.runs {
+		if run[0] == "mutagen" && run[1] == "sync" && run[2] == "terminate" && run[3] == "sssh-path" {
+			terminated = true
+		}
+		if run[0] == "mutagen" && run[1] == "sync" && run[2] == "create" && run[4] == "sssh-path" {
+			created = true
+		}
+	}
+
+	if !terminated {
+		t.Error("expected mutagen sync terminate to be called for the differing session")
+	}
+	if !created {
+		t.Error("expected mutagen sync create to be called after terminating")
+	}
+}
+
