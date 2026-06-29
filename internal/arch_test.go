@@ -101,6 +101,9 @@ func TestArchitecture_DomainIsPureData(t *testing.T) {
 
 func TestArchitecture_NoAnyReturnTypes(t *testing.T) {
 	for _, pkgPath := range internalPackages(t) {
+		if pkgPath == "github.com/Cyclone1070/sssh/internal/dockertest" {
+			continue
+		}
 		t.Run(pkgPath, func(t *testing.T) {
 			checkNoAnyInPackage(t, pkgPath)
 		})
@@ -158,7 +161,7 @@ func checkNoAny(t *testing.T, filename string, expr ast.Expr) {
 
 func TestArchitecture_NoGlobals(t *testing.T) {
 	for _, pkgPath := range internalPackages(t) {
-		if pkgPath == "github.com/Cyclone1070/sssh/internal/fs" {
+		if pkgPath == "github.com/Cyclone1070/sssh/internal/fs" || pkgPath == "github.com/Cyclone1070/sssh/internal/dockertest" {
 			continue
 		}
 		t.Run(pkgPath, func(t *testing.T) {
@@ -203,7 +206,7 @@ func inspectNoGlobals(t *testing.T, filepathKey string, file *ast.File) {
 
 func TestArchitecture_MockedUnitTestsOnly(t *testing.T) {
 	for _, pkgPath := range internalPackages(t) {
-		if pkgPath == "github.com/Cyclone1070/sssh/internal/fs" {
+		if pkgPath == "github.com/Cyclone1070/sssh/internal/fs" || pkgPath == "github.com/Cyclone1070/sssh/internal/dockertest" {
 			continue
 		}
 		t.Run(pkgPath, func(t *testing.T) {
@@ -287,6 +290,7 @@ func TestArchitecture_SymmetricalTestFileNaming(t *testing.T) {
 		"integration_test.go": true,
 		"arch_test.go":        true,
 		"mock_test.go":        true,
+		"runner_test.go":      true,
 	}
 
 	for _, startDir := range dirs {

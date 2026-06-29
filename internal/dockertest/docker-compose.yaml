@@ -1,0 +1,27 @@
+version: '3.8'
+
+networks:
+  sssh-net:
+    driver: bridge
+
+services:
+  sssh-server:
+    build:
+      context: .
+      dockerfile: server/Dockerfile
+    container_name: sssh-server
+    hostname: sssh-server
+    networks:
+      - sssh-net
+
+  sssh-client:
+    build:
+      context: .
+      dockerfile: client/Dockerfile
+    container_name: sssh-client
+    hostname: sssh-client
+    networks:
+      - sssh-net
+    depends_on:
+      - sssh-server
+    command: tail -f /dev/null
