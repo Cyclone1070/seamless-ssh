@@ -140,6 +140,19 @@ try:
         ]
     )
 
+    # 5. Test Remove Pattern
+    import subprocess
+    print("Removing 'hostname' pattern...")
+    subprocess.run(["sssh", "remove", "hostname"], check=True)
+    
+    run_zsh_test(
+        "Vanilla Zsh Post-Remove",
+        vanilla_setup,
+        [
+            ("hostname", "sssh-client"),
+        ]
+    )
+
     print("ALL INTERACTIVE SHELL TESTS COMPLETED SUCCESSFULLY")
     sys.exit(0)
 except Exception as e:

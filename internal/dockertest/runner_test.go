@@ -2,6 +2,7 @@ package dockertest_test
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"net"
 	"os"
@@ -199,6 +200,89 @@ func TestDockerIntegration(t *testing.T) {
 	} else {
 		t.Log("Podman port forwarding verification PASSED.")
 	}
+
+	// 5. Test File Synchronization via Mutagen
+	t.Log("Testing file synchronization...")
+	// Write a file locally inside client
+	runCmd(t, "docker", "exec", "sssh-client", "bash", "-c", "echo 'synced-content' > /home/testuser/sync-test.txt")
+
+	// Wait for Mutagen to synchronize (up to 5 seconds)
+	syncSuccess := false
+	for i := 0; i < 5; i++ {
+		time.Sleep(1 * time.Second)
+		remoteFileContent, _ := exec.Command("docker", "exec", "sssh-server", "cat", "/home/testuser/remote-dir/sync-test.txt").Output()
+		if strings.Contains(string(remoteFileContent), "synced-content") {
+			syncSuccess = true
+			break
+		}
+	}
+	if !syncSuccess {
+		t.Fatalf("Mutagen failed to synchronize file from client to server")
+	}
+	t.Log("File synchronization PASSED.")
+
+	// 6. Test Listing Links (sssh status)
+	t.Log("Testing sssh status command...")
+	statusOutput := runCmd(t, "docker", "exec", "-w", "/home/testuser", "sssh-client", "sssh", "status")
+	if !strings.Contains(statusOutput, "dev-box") || !strings.Contains(statusOutput, "/home/testuser/remote-dir") {
+		t.Fatalf("expected sssh status to output link details, got: %s", statusOutput)
+	}
+	t.Log("sssh status command PASSED.")
+
+	// 7. Test Link Deletion and Process Teardown (sssh unlink)
+	t.Log("Testing sssh unlink and cleanup...")
+	// Extract the port listener PID from links.json first
+	linksJSON := runCmd(t, "docker", "exec", "sssh-client", "cat", "/home/testuser/.config/sssh/links.json")
+	var linksData map[string]struct {
+		ListenerPid int `json:"listener_pid"`
+	}
+	if err := json.Unmarshal([]byte(linksJSON), &linksData); err != nil {
+		t.Fatalf("failed to parse links.json: %v", err)
+	}
+	var listenerPid int
+	for _, val := range linksData {
+		listenerPid = val.ListenerPid
+	}
+	if listenerPid == 0 {
+		t.Fatalf("expected active listener PID, got 0")
+	}
+
+	// Perform unlink
+	runCmd(t, "docker", "exec", "-w", "/home/testuser", "sssh-client", "sssh", "unlink")
+
+	// Verify links.json is empty
+	emptyLinksJSON := runCmd(t, "docker", "exec", "sssh-client", "cat", "/home/testuser/.config/sssh/links.json")
+	if strings.TrimSpace(emptyLinksJSON) != "{}" {
+		t.Fatalf("expected links.json to be empty after unlink, got: %s", emptyLinksJSON)
+	}
+
+	// Verify listener process is terminated
+	// Since ps is not installed, we check /proc/<pid>/status
+	// If the file does not exist or the process has become a zombie (Z), it is terminated.
+	terminated := false
+	for i := 0; i < 10; i++ {
+		statusBytes, err := exec.Command("docker", "exec", "sssh-client", "cat", fmt.Sprintf("/proc/%d/status", listenerPid)).CombinedOutput()
+		if err != nil {
+			terminated = true
+			break
+		}
+		statusStr := string(statusBytes)
+		if strings.Contains(statusStr, "State:\tZ") || strings.Contains(statusStr, "State:	Z") {
+			terminated = true
+			break
+		}
+		time.Sleep(200 * time.Millisecond)
+	}
+	if !terminated {
+		t.Fatalf("expected port-listener process (PID %d) to be terminated, but it is still running", listenerPid)
+	}
+
+	// Verify Mutagen session is terminated
+	mutagenList, _ := exec.Command("docker", "exec", "sssh-client", "mutagen", "sync", "list").CombinedOutput()
+	if strings.Contains(string(mutagenList), "Session:") {
+		t.Fatalf("expected Mutagen sync sessions to be terminated, but found active session: %s", string(mutagenList))
+	}
+	t.Log("sssh unlink and cleanup PASSED.")
 }
 
 // Simple port verification helper
