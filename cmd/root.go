@@ -16,14 +16,22 @@ import (
 	"github.com/spf13/cobra"
 )
 
+var Version = "0.1.0"
+
 func NewRootCmd() *cobra.Command {
 	rootCmd := &cobra.Command{
-		Use:   "sssh",
-		Short: "Seamless-SSH (sssh) developer workflow offloading tool",
-		Long:  "SSSH links local folders to a remote server, syncs edits, intercepts command patterns, runs them remotely, and forwards outputs and container ports.",
+		Use:     "sssh",
+		Version: Version,
+		Short:   "Seamless-SSH (sssh) developer workflow offloading tool",
+		Long:    "SSSH links local folders to a remote server, syncs edits, intercepts command patterns, runs them remotely, and forwards outputs and container ports.",
 		Run: func(cmd *cobra.Command, args []string) {
 			_ = cmd.Help()
 		},
+	}
+
+	rootCmd.InitDefaultVersionFlag()
+	if versionFlag := rootCmd.Flags().Lookup("version"); versionFlag != nil {
+		versionFlag.Shorthand = "v"
 	}
 
 	rootCmd.AddCommand(&cobra.Command{
