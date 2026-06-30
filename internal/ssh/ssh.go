@@ -66,6 +66,16 @@ func NewManager(runner CmdRunner) *Manager {
 }
 
 func escapeArg(arg string) string {
+	if arg == "~" {
+		return "~"
+	}
+	if strings.HasPrefix(arg, "~/") {
+		remainder := arg[2:]
+		if strings.ContainsAny(remainder, " \t\n&|;<>()$`\"'\\*?[]~") {
+			return "~/'" + strings.ReplaceAll(remainder, "'", "'\\''") + "'"
+		}
+		return arg
+	}
 	if strings.ContainsAny(arg, " \t\n&|;<>()$`\"'\\*?[]~") {
 		return "'" + strings.ReplaceAll(arg, "'", "'\\''") + "'"
 	}
@@ -74,10 +84,30 @@ func escapeArg(arg string) string {
 
 func (m *Manager) Exec(sshTarget string, remoteDir string, cmdAndArgs []string, env []string, stdin io.Reader, stdout, stderr io.Writer) (int, error) {
 	var envStrings []string
+	excludedKeys := map[string]bool{
+		"HOME":           true,
+		"PATH":           true,
+		"PWD":            true,
+		"USER":           true,
+		"LOGNAME":        true,
+		"SHELL":          true,
+		"TMPDIR":         true,
+		"OLDPWD":         true,
+		"_":              true,
+		"SSH_AUTH_SOCK":  true,
+		"SSH_CLIENT":     true,
+		"SSH_CONNECTION": true,
+		"SSH_TTY":        true,
+	}
+
 	for _, e := range env {
 		if strings.Contains(e, "=") {
 			parts := strings.SplitN(e, "=", 2)
-			envStrings = append(envStrings, fmt.Sprintf("%s=%s", parts[0], escapeArg(parts[1])))
+			key := parts[0]
+			if excludedKeys[key] {
+				continue
+			}
+			envStrings = append(envStrings, fmt.Sprintf("%s=%s", key, escapeArg(parts[1])))
 		}
 	}
 

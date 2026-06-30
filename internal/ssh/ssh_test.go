@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strings"
 	"testing"
 
 	"github.com/Cyclone1070/sssh/internal/domain"
@@ -183,3 +184,66 @@ func TestSSHExec_NetworkTimeout(t *testing.T) {
 		t.Errorf("expected exit code 255 on network failure, got %d", code)
 	}
 }
+
+func TestSSHExec_TildePathExpansion(t *testing.T) {
+	runner := &mockCmdRunner{
+		streamCode: 0,
+	}
+	mgr := ssh.NewManager(runner)
+
+	host := "ubuntu@1.2.3.4"
+	_, err := mgr.Exec(host, "~/.sssh/sync/autocmd", []string{"go", "test"}, nil, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	args := runner.streamArgs
+	remoteCmd := args[len(args)-1]
+
+	// Verify that the cd command does NOT single-quote the tilde.
+	// It should be: cd ~/.sssh/sync/autocmd && go test
+	// If it is quoted: cd '~/.sssh/sync/autocmd' && go test, that is incorrect.
+	expectedCmd := "cd ~/.sssh/sync/autocmd && go test"
+	if remoteCmd != expectedCmd {
+		t.Errorf("expected remote command %q, but got %q", expectedCmd, remoteCmd)
+	}
+}
+
+func TestSSHExec_ExcludesLocalEnvVars(t *testing.T) {
+	runner := &mockCmdRunner{
+		streamCode: 0,
+	}
+	mgr := ssh.NewManager(runner)
+
+	host := "ubuntu@1.2.3.4"
+	env := []string{
+		"HOME=/local/home",
+		"PATH=/local/path",
+		"PWD=/local/pwd",
+		"MY_VAR=my_val",
+	}
+
+	_, err := mgr.Exec(host, "/remote/dir", []string{"go", "test"}, env, nil, nil, nil)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	args := runner.streamArgs
+	remoteCmd := args[len(args)-1]
+
+	// Verify that MY_VAR is present, but HOME, PATH, and PWD are not
+	if !strings.Contains(remoteCmd, "MY_VAR=my_val") {
+		t.Errorf("expected remoteCmd to contain MY_VAR=my_val, but got: %q", remoteCmd)
+	}
+	if strings.Contains(remoteCmd, "HOME=") {
+		t.Errorf("expected remoteCmd to NOT contain HOME=, but got: %q", remoteCmd)
+	}
+	if strings.Contains(remoteCmd, "PATH=") {
+		t.Errorf("expected remoteCmd to NOT contain PATH=, but got: %q", remoteCmd)
+	}
+	if strings.Contains(remoteCmd, "PWD=") {
+		t.Errorf("expected remoteCmd to NOT contain PWD=, but got: %q", remoteCmd)
+	}
+}
+
+
