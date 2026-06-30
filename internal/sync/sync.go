@@ -45,11 +45,12 @@ func (m *Manager) Start(localPath string, sshTarget string, remotePath string) e
 	if err == nil && len(listBytes) > 0 {
 		listOutput := string(listBytes)
 		if strings.Contains(listOutput, "Name: "+name) || strings.Contains(listOutput, "Identifier: ") {
+			isDuplicate := strings.Count(listOutput, "Name: "+name) > 1
 			hasLocal := strings.Contains(listOutput, "URL: "+localPath) || strings.Contains(listOutput, "URL: "+filepath.Clean(localPath))
 			hasRemote := strings.Contains(listOutput, "URL: "+remoteURL)
 
-			if hasLocal && hasRemote {
-				// Existing session matches targets, do nothing
+			if !isDuplicate && hasLocal && hasRemote {
+				// Existing session matches targets and is not duplicated, do nothing
 				return nil
 			}
 

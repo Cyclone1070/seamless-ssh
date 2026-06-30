@@ -348,3 +348,32 @@ func TestSyncStart_ExistingSessionDiffers_TerminatesAndCreates(t *testing.T) {
 	}
 }
 
+func TestSyncStart_ExistingSessionDuplicate_TerminatesAndCreates(t *testing.T) {
+	// If there are duplicate sessions with the same name, we should terminate them and recreate a clean one.
+	runner := &mockCmdRunner{
+		runResults: map[string][]byte{
+			"mutagen sync list sssh-path": []byte("Name: sssh-path\nIdentifier: id1\nAlpha:\n\tURL: /local/path\nBeta:\n\tURL: dev-box:/remote/path\n\nName: sssh-path\nIdentifier: id2\nAlpha:\n\tURL: /local/path\nBeta:\n\tURL: dev-box:/remote/path\n"),
+		},
+		runErrors: make(map[string]error),
+	}
+	mgr := sync.NewManager(runner)
+
+	err := mgr.Start("/local/path", "dev-box", "/remote/path")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	// Verify mutagen sync terminate was called
+	terminated := false
+	for _, run := range runner.runs {
+		if run[0] == "mutagen" && run[1] == "sync" && run[2] == "terminate" && run[3] == "sssh-path" {
+			terminated = true
+		}
+	}
+
+	if !terminated {
+		t.Error("expected mutagen sync terminate to be called for duplicate sessions")
+	}
+}
+
+

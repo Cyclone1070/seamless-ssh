@@ -16,6 +16,12 @@ import (
 	"github.com/Cyclone1070/sssh/internal/sync"
 )
 
+type CmdRunner interface {
+	Run(name string, args ...string) ([]byte, error)
+}
+
+var commandRunner CmdRunner = internalexec.NewRealRunner()
+
 func runLink() {
 	if len(os.Args) < 4 || os.Args[2] != "." {
 		fmt.Println("Usage: sssh link . [ssh-target] [--remote-dir <dir>]")
@@ -54,11 +60,13 @@ func runLink() {
 		"-o", "ControlPersist=1h",
 		sshTarget,
 	}
-	_ = exec.Command("ssh", sshArgs...).Run()
+	_, _ = commandRunner.Run("ssh", sshArgs...)
+
+	// Ensure remote directory exists recursively before starting sync
+	_, _ = commandRunner.Run("ssh", "-o", "ControlPath="+controlPath, sshTarget, "mkdir", "-p", remoteDir)
 
 	// Start mutagen sync
-	runner := internalexec.NewRealRunner()
-	syncMgr := sync.NewManager(runner)
+	syncMgr := sync.NewManager(commandRunner)
 	err := syncMgr.Start(pwd, sshTarget, remoteDir)
 	if err != nil {
 		fmt.Printf("Error starting sync: %v\n", err)
