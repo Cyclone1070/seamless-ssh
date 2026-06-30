@@ -25,9 +25,13 @@ func NewMatcher() *Matcher {
 func stripEnv(cmdLine string) string {
 	words := strings.Fields(cmdLine)
 	var actualCmd []string
+	commandStarted := false
 	for _, w := range words {
-		if strings.Contains(w, "=") {
-			continue
+		if !commandStarted {
+			if strings.Contains(w, "=") {
+				continue
+			}
+			commandStarted = true
 		}
 		actualCmd = append(actualCmd, w)
 	}
@@ -58,7 +62,10 @@ func (m *Matcher) ShouldRunRemote(cmdLine string, patterns []string) bool {
 		c := strings.TrimSpace(stripped)
 
 		if strings.Contains(p, "*") {
-			matched, err := filepath.Match(p, c)
+			// Replace slashes with underscores so filepath.Match doesn't treat them as path separators
+			pClean := strings.NewReplacer("/", "_", "\\", "_").Replace(p)
+			cClean := strings.NewReplacer("/", "_", "\\", "_").Replace(c)
+			matched, err := filepath.Match(pClean, cClean)
 			if err == nil && matched {
 				return true
 			}

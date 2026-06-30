@@ -106,3 +106,31 @@ func contains(s, substr string) bool {
 	}
 	return false
 }
+
+func TestPattern_MatchGlobWithSlash(t *testing.T) {
+	matcher := shell.NewMatcher()
+	patterns := []string{"go test*"}
+
+	if !matcher.ShouldRunRemote("go test ./...", patterns) {
+		t.Error("expected glob pattern to match command line containing slashes")
+	}
+}
+
+func TestPattern_MatchFlagsWithEqual(t *testing.T) {
+	matcher := shell.NewMatcher()
+	patterns := []string{"go test -run=TestMyFunc"}
+
+	if !matcher.ShouldRunRemote("go test -run=TestMyFunc", patterns) {
+		t.Error("expected exact pattern with equal sign to match")
+	}
+}
+
+func TestPattern_MatchEnvAndFlagsWithEqual(t *testing.T) {
+	matcher := shell.NewMatcher()
+	patterns := []string{"go test -run=TestMyFunc"}
+
+	if !matcher.ShouldRunRemote("ENV_VAR=dev go test -run=TestMyFunc", patterns) {
+		t.Error("expected command with leading environment variable and flags containing equal signs to match")
+	}
+}
+
